@@ -2,6 +2,7 @@
 """Auto-download cloudflared binary if not in PATH."""
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import platform
@@ -15,28 +16,44 @@ logger = logging.getLogger(__name__)
 
 _BIN_DIR = Path("~/.copaw/bin").expanduser()
 
+# Pinned cloudflared version — update checksums when bumping.
+_CLOUDFLARED_VERSION = "2026.2.0"
+_BASE_URL = (
+    "https://github.com/cloudflare/cloudflared/releases/"
+    f"download/{_CLOUDFLARED_VERSION}"
+)
+
 # cloudflared release download URLs by (system, machine) pair.
 _DOWNLOAD_URLS: dict[tuple[str, str], str] = {
-    ("Darwin", "x86_64"): (
-        "https://github.com/cloudflare/cloudflared/releases/latest"
-        "/download/cloudflared-darwin-amd64.tgz"
-    ),
-    ("Darwin", "arm64"): (
-        "https://github.com/cloudflare/cloudflared/releases/latest"
-        "/download/cloudflared-darwin-arm64.tgz"
-    ),
-    ("Linux", "x86_64"): (
-        "https://github.com/cloudflare/cloudflared/releases/latest"
-        "/download/cloudflared-linux-amd64"
-    ),
-    ("Linux", "aarch64"): (
-        "https://github.com/cloudflare/cloudflared/releases/latest"
-        "/download/cloudflared-linux-arm64"
-    ),
-    ("Windows", "AMD64"): (
-        "https://github.com/cloudflare/cloudflared/releases/latest"
-        "/download/cloudflared-windows-amd64.exe"
-    ),
+    ("Darwin", "x86_64"): f"{_BASE_URL}/cloudflared-darwin-amd64.tgz",
+    ("Darwin", "arm64"): f"{_BASE_URL}/cloudflared-darwin-arm64.tgz",
+    ("Linux", "x86_64"): f"{_BASE_URL}/cloudflared-linux-amd64",
+    ("Linux", "aarch64"): f"{_BASE_URL}/cloudflared-linux-arm64",
+    ("Windows", "AMD64"): f"{_BASE_URL}/cloudflared-windows-amd64.exe",
+}
+
+# SHA256 checksums from the official release.
+_SHA256_CHECKSUMS: dict[tuple[str, str], str] = {
+    (
+        "Darwin",
+        "x86_64",
+    ): "685688a260c324eb8d9c9434ca22f0ce4f504fd6acd0706787c4833de8d6eb17",
+    (
+        "Darwin",
+        "arm64",
+    ): "ba99c6f87320236b9f842c3ba4b9526f687560125b7b43a581201579543ca4ff",
+    (
+        "Linux",
+        "x86_64",
+    ): "176746db3be7dc7bd48f3dd287c8930a4645ebb6e6700f883fddda5a4c307c16",
+    (
+        "Linux",
+        "aarch64",
+    ): "03c5d58e283f521d752dc4436014eb341092edf076eb1095953ab82debe54a8e",
+    (
+        "Windows",
+        "AMD64",
+    ): "b3279f2186a1c3c438ad5865e802bbbec26090c5d3fdb4ac1113f1143a94837a",
 }
 
 
@@ -67,10 +84,26 @@ class BinaryManager:
 
         return self._download()
 
+    @staticmethod
+    def _verify_checksum(path: str, expected: str) -> None:
+        """Verify SHA256 checksum of a downloaded file."""
+        sha256 = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 16), b""):
+                sha256.update(chunk)
+        actual = sha256.hexdigest()
+        if actual != expected:
+            os.unlink(path)
+            raise RuntimeError(
+                f"SHA256 mismatch for {path}: "
+                f"expected {expected}, got {actual}",
+            )
+
     def _download(self) -> str:
         key = _platform_key()
         url = _DOWNLOAD_URLS.get(key)
-        if not url:
+        expected_hash = _SHA256_CHECKSUMS.get(key)
+        if not url or not expected_hash:
             raise RuntimeError(
                 f"No cloudflared download available for {key}. "
                 "Install it manually: "
@@ -84,7 +117,11 @@ class BinaryManager:
         bin_name = "cloudflared.exe" if is_windows else "cloudflared"
         dest = self._bin_dir / bin_name
 
-        logger.info("Downloading cloudflared from %s ...", url)
+        logger.info(
+            "Downloading cloudflared %s from %s ...",
+            _CLOUDFLARED_VERSION,
+            url,
+        )
 
         if url.endswith(".tgz"):
             import tarfile
@@ -96,32 +133,46 @@ class BinaryManager:
                 tmp_path = tmp.name
             try:
                 urlretrieve(url, tmp_path)
+                self._verify_checksum(tmp_path, expected_hash)
                 with tarfile.open(tmp_path, "r:gz") as tar:
-                    members = tar.getnames()
-                    cf_member = next(
-                        (m for m in members if m.endswith("cloudflared")),
-                        members[0],
+                    member = next(
+                        (
+                            m
+                            for m in tar.getmembers()
+                            if m.name.endswith("cloudflared")
+                        ),
+                        None,
                     )
-                    # Guard against path traversal (tar slip)
-                    resolved = (self._bin_dir / cf_member).resolve()
-                    if not str(resolved).startswith(
-                        str(self._bin_dir.resolve()),
-                    ):
+                    if member is None:
                         raise RuntimeError(
-                            f"Tar member escapes target dir: {cf_member}",
+                            "Archive does not contain a cloudflared binary",
                         )
-                    tar.extract(cf_member, path=str(self._bin_dir))
-                    extracted = self._bin_dir / cf_member
-                    if extracted != dest:
-                        extracted.rename(dest)
+                    if not member.isfile():
+                        raise RuntimeError(
+                            f"Tar member is not a regular file: {member.name} "
+                            f"(type {member.type!r})",
+                        )
+                    fileobj = tar.extractfile(member)
+                    if fileobj is None:
+                        raise RuntimeError(
+                            f"Cannot read tar member: {member.name}",
+                        )
+                    with fileobj, open(dest, "wb") as out:
+                        shutil.copyfileobj(fileobj, out)
             finally:
-                os.unlink(tmp_path)
+                if os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
         else:
             urlretrieve(url, str(dest))
+            self._verify_checksum(str(dest), expected_hash)
 
         if not is_windows:
             dest.chmod(
                 dest.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP,
             )
-        logger.info("cloudflared installed to %s", dest)
+        logger.info(
+            "cloudflared %s installed to %s",
+            _CLOUDFLARED_VERSION,
+            dest,
+        )
         return str(dest)

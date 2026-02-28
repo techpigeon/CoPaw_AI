@@ -164,17 +164,14 @@ class CloudflareTunnelDriver:
         """Read and discard stderr to prevent pipe buffer from filling."""
         if not self._process or not self._process.stderr:
             return
-        try:
-            while True:
-                line = await self._process.stderr.readline()
-                if not line:
-                    break
-                logger.debug(
-                    "cloudflared: %s",
-                    line.decode("utf-8", errors="replace").strip(),
-                )
-        except asyncio.CancelledError:
-            return
+        while True:
+            line = await self._process.stderr.readline()
+            if not line:
+                break
+            logger.debug(
+                "cloudflared: %s",
+                line.decode("utf-8", errors="replace").strip(),
+            )
 
     async def _monitor(self) -> None:
         """Drain stderr and log unexpected exit without auto-restart."""
