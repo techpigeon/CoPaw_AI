@@ -487,21 +487,6 @@ def configure_voice(
     )
     current_config.welcome_greeting = welcome_greeting
 
-    # — Advanced settings —
-
-    configure_advanced = prompt_confirm(
-        "Configure advanced settings? (concurrent calls)",
-        default=False,
-    )
-
-    if configure_advanced:
-        max_concurrent_calls = click.prompt(
-            "Max concurrent calls",
-            default=current_config.max_concurrent_calls,
-            type=int,
-        )
-        current_config.max_concurrent_calls = max_concurrent_calls
-
     return current_config
 
 

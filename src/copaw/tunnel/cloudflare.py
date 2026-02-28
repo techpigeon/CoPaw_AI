@@ -146,7 +146,9 @@ class CloudflareTunnelDriver:
                     timeout=max(0.1, deadline - loop.time()),
                 )
             except asyncio.TimeoutError:
-                break
+                if loop.time() >= deadline:
+                    break
+                continue
             if not line:
                 if self._process.returncode is not None:
                     break

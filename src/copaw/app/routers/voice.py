@@ -88,7 +88,6 @@ async def _validate_twilio_signature(request: Request) -> None:
 async def voice_incoming(request: Request) -> Response:
     """Twilio webhook: return TwiML for an incoming call."""
     from ..channels.voice.twiml import (
-        build_busy_twiml,
         build_conversation_relay_twiml,
         build_error_twiml,
     )
@@ -99,10 +98,6 @@ async def voice_incoming(request: Request) -> Response:
         return Response(content=twiml, media_type="application/xml")
 
     config = voice_ch.config
-    max_calls = getattr(config, "max_concurrent_calls", 1)
-    if voice_ch.session_mgr.active_count() >= max_calls:
-        twiml = build_busy_twiml()
-        return Response(content=twiml, media_type="application/xml")
 
     # Build the WebSocket URL for ConversationRelay
     wss_url = voice_ch.get_tunnel_wss_url()

@@ -44,7 +44,6 @@ export interface VoiceChannelConfig extends BaseChannelConfig {
   stt_provider: string;
   language: string;
   welcome_greeting: string;
-  max_concurrent_calls: number;
 }
 
 export interface ChannelConfig {

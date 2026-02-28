@@ -172,7 +172,6 @@
     "sttProvider": "STT 提供商",
     "language": "语言",
     "welcomeGreeting": "欢迎语",
-    "maxConcurrentCalls": "最大并发通话数",
     "voiceSetupGuide": "请先注册 Twilio 账户并购买电话号码，然后在下方填写凭据。Account SID 和 Auth Token 可在 Twilio 控制台首页找到。Phone Number SID 在 Phone Numbers → Active Numbers 中查看。",
     "voiceSetupLink": "打开 Twilio 控制台"
   },

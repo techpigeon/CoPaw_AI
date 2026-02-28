@@ -177,12 +177,6 @@ export function ChannelDrawer({
             >
               <Input.TextArea rows={2} />
             </Form.Item>
-            <Form.Item
-              name="max_concurrent_calls"
-              label={t("channels.maxConcurrentCalls")}
-            >
-              <InputNumber min={1} style={{ width: "100%" }} />
-            </Form.Item>
           </>
         );
       default:

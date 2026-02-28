@@ -172,7 +172,6 @@
     "sttProvider": "STT Provider",
     "language": "Language",
     "welcomeGreeting": "Welcome Greeting",
-    "maxConcurrentCalls": "Max Concurrent Calls",
     "voiceSetupGuide": "Set up a Twilio account, purchase a phone number, then enter your credentials below. Find your Account SID and Auth Token on the Twilio Console dashboard. The Phone Number SID is listed under Phone Numbers → Active Numbers.",
     "voiceSetupLink": "Open Twilio Console"
   },

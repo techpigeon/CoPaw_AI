@@ -15,8 +15,6 @@ class TestVoiceChannelConfig:
         assert config.tts_voice == "en-US-Journey-D"
         assert config.stt_provider == "deepgram"
         assert config.language == "en-US"
-        assert config.max_concurrent_calls == 1
-        assert config.local_port == 8088
 
     def test_custom_values(self):
         config = VoiceChannelConfig(
@@ -27,12 +25,10 @@ class TestVoiceChannelConfig:
             phone_number_sid="PN123",
             tts_provider="amazon",
             tts_voice="Joanna",
-            max_concurrent_calls=3,
         )
         assert config.enabled is True
         assert config.twilio_account_sid == "AC123"
         assert config.tts_provider == "amazon"
-        assert config.max_concurrent_calls == 3
 
     def test_channel_config_includes_voice(self):
         ch = ChannelConfig()

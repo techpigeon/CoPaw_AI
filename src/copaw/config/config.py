@@ -70,7 +70,6 @@ class VoiceChannelConfig(BaseChannelConfig):
     stt_provider: str = "deepgram"
     language: str = "en-US"
     welcome_greeting: str = "Hi! This is CoPaw. How can I help you?"
-    max_concurrent_calls: int = 1
 
 
 class ChannelConfig(BaseModel):
